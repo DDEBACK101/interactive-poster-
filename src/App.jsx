@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import './App.css'
 
 const defaultPoster = {
@@ -41,8 +41,12 @@ const uiLabels = {
   letterSpacing: '\uc790\uac04',
   randomDesign: '\ub79c\ub364 \ub514\uc790\uc778',
   reset: '\ucd08\uae30\ud654',
+  download: '\uc774\ubbf8\uc9c0 \uc800\uc7a5',
+  downloading: '\uc800\uc7a5 \uc911...',
   preview: '\ud3ec\uc2a4\ud130 \ubbf8\ub9ac\ubcf4\uae30',
   posterKicker: '\uc2dc\uac01 \uc2e4\ud5d8 01',
+  downloadError:
+    '\uc774\ubbf8\uc9c0 \uc800\uc7a5 \uc911 \ubb38\uc81c\uac00 \uc0dd\uacbc\uc2b5\ub2c8\ub2e4.',
 }
 
 const randomMainTexts = [
@@ -63,6 +67,8 @@ const randomSubTexts = [
 
 function App() {
   const [posterSettings, setPosterSettings] = useState(defaultPoster)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const posterRef = useRef(null)
 
   const updatePosterSetting = (settingName, value) => {
     setPosterSettings((currentSettings) => ({
@@ -91,12 +97,89 @@ function App() {
     setPosterSettings(defaultPoster)
   }
 
+  const getPageStyleText = () => {
+    return Array.from(document.styleSheets)
+      .map((styleSheet) => {
+        try {
+          return Array.from(styleSheet.cssRules)
+            .map((rule) => rule.cssText)
+            .join('\n')
+        } catch {
+          return ''
+        }
+      })
+      .join('\n')
+  }
+
+  const downloadPosterImage = () => {
+    if (!posterRef.current || isDownloading) {
+      return
+    }
+
+    setIsDownloading(true)
+
+    const posterElement = posterRef.current
+    const posterWidth = posterElement.offsetWidth
+    const posterHeight = posterElement.offsetHeight
+    const clonedPoster = posterElement.cloneNode(true)
+    const styleText = getPageStyleText()
+
+    clonedPoster.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml')
+    clonedPoster.style.width = `${posterWidth}px`
+    clonedPoster.style.height = `${posterHeight}px`
+
+    const svgMarkup = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${posterWidth}" height="${posterHeight}" viewBox="0 0 ${posterWidth} ${posterHeight}">
+        <foreignObject width="100%" height="100%">
+          <div xmlns="http://www.w3.org/1999/xhtml">
+            <style>${styleText}</style>
+            ${clonedPoster.outerHTML}
+          </div>
+        </foreignObject>
+      </svg>
+    `
+
+    const svgBlob = new Blob([svgMarkup], {
+      type: 'image/svg+xml;charset=utf-8',
+    })
+    const svgUrl = URL.createObjectURL(svgBlob)
+    const image = new Image()
+
+    image.onload = () => {
+      try {
+        const scale = 2
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+
+        canvas.width = posterWidth * scale
+        canvas.height = posterHeight * scale
+        context.scale(scale, scale)
+        context.drawImage(image, 0, 0, posterWidth, posterHeight)
+
+        const downloadLink = document.createElement('a')
+        downloadLink.download = 'interactive-poster.png'
+        downloadLink.href = canvas.toDataURL('image/png')
+        downloadLink.click()
+      } catch {
+        alert(uiLabels.downloadError)
+      } finally {
+        URL.revokeObjectURL(svgUrl)
+        setIsDownloading(false)
+      }
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(svgUrl)
+      setIsDownloading(false)
+      alert(uiLabels.downloadError)
+    }
+
+    image.src = svgUrl
+  }
+
   return (
     <main className="poster-generator">
-      <section
-        className="control-panel"
-        aria-label={uiLabels.controlPanel}
-      >
+      <section className="control-panel" aria-label={uiLabels.controlPanel}>
         <div className="panel-header">
           <p className="eyebrow">{uiLabels.appName}</p>
           <h1>{uiLabels.title}</h1>
@@ -214,15 +297,21 @@ function App() {
           <button type="button" className="ghost-button" onClick={resetDesign}>
             {uiLabels.reset}
           </button>
+          <button
+            type="button"
+            className="download-button"
+            onClick={downloadPosterImage}
+            disabled={isDownloading}
+          >
+            {isDownloading ? uiLabels.downloading : uiLabels.download}
+          </button>
         </div>
       </section>
 
-      <section
-        className="preview-section"
-        aria-label={uiLabels.preview}
-      >
+      <section className="preview-section" aria-label={uiLabels.preview}>
         <div className="preview-stage">
           <article
+            ref={posterRef}
             className={`poster-card ${posterSettings.backgroundStyle}`}
             style={{
               '--poster-font-size': `${posterSettings.fontSize}px`,
