@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+﻿import { useState } from 'react'
 import './App.css'
 
 const defaultPoster = {
@@ -65,10 +65,14 @@ const randomSubTexts = [
   '\ucc3d\uc758\uc801\uc778 \uc6f9 \ub514\ub809\uc158',
 ]
 
+const posterExportSize = {
+  width: 1600,
+  height: 2000,
+}
+
 function App() {
   const [posterSettings, setPosterSettings] = useState(defaultPoster)
   const [isDownloading, setIsDownloading] = useState(false)
-  const posterRef = useRef(null)
 
   const updatePosterSetting = (settingName, value) => {
     setPosterSettings((currentSettings) => ({
@@ -97,85 +101,320 @@ function App() {
     setPosterSettings(defaultPoster)
   }
 
-  const getPageStyleText = () => {
-    return Array.from(document.styleSheets)
-      .map((styleSheet) => {
-        try {
-          return Array.from(styleSheet.cssRules)
-            .map((rule) => rule.cssText)
-            .join('\n')
-        } catch {
-          return ''
-        }
-      })
-      .join('\n')
+  const makeRoundedRect = (context, x, y, width, height, radius) => {
+    context.beginPath()
+    context.moveTo(x + radius, y)
+    context.lineTo(x + width - radius, y)
+    context.quadraticCurveTo(x + width, y, x + width, y + radius)
+    context.lineTo(x + width, y + height - radius)
+    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+    context.lineTo(x + radius, y + height)
+    context.quadraticCurveTo(x, y + height, x, y + height - radius)
+    context.lineTo(x, y + radius)
+    context.quadraticCurveTo(x, y, x + radius, y)
+    context.closePath()
   }
 
-  const downloadPosterImage = () => {
-    if (!posterRef.current || isDownloading) {
+  const fillCircleGradient = (context, x, y, radius, color) => {
+    const gradient = context.createRadialGradient(x, y, 0, x, y, radius)
+    gradient.addColorStop(0, color)
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+    context.fillStyle = gradient
+    context.fillRect(0, 0, posterExportSize.width, posterExportSize.height)
+  }
+
+  const drawGrid = (context, gap, color) => {
+    context.strokeStyle = color
+    context.lineWidth = 3
+
+    for (let x = 0; x <= posterExportSize.width; x += gap) {
+      context.beginPath()
+      context.moveTo(x, 0)
+      context.lineTo(x, posterExportSize.height)
+      context.stroke()
+    }
+
+    for (let y = 0; y <= posterExportSize.height; y += gap) {
+      context.beginPath()
+      context.moveTo(0, y)
+      context.lineTo(posterExportSize.width, y)
+      context.stroke()
+    }
+  }
+
+  const drawPosterBackground = (context, backgroundStyle) => {
+    if (backgroundStyle === 'paper') {
+      context.fillStyle = '#f5edcf'
+      context.fillRect(0, 0, posterExportSize.width, posterExportSize.height)
+      drawGrid(context, 80, 'rgba(23, 18, 15, 0.08)')
+      fillCircleGradient(context, 1280, 360, 480, 'rgba(255, 78, 205, 0.52)')
+      return
+    }
+
+    if (backgroundStyle === 'dark') {
+      context.fillStyle = '#08090f'
+      context.fillRect(0, 0, posterExportSize.width, posterExportSize.height)
+      drawGrid(context, 104, 'rgba(113, 242, 255, 0.12)')
+      fillCircleGradient(context, 1180, 480, 560, 'rgba(255, 78, 205, 0.36)')
+      return
+    }
+
+    if (backgroundStyle === 'neon') {
+      const gradient = context.createLinearGradient(0, 0, posterExportSize.width, posterExportSize.height)
+      gradient.addColorStop(0, '#101323')
+      gradient.addColorStop(0.58, '#28134f')
+      gradient.addColorStop(1, '#05040a')
+      context.fillStyle = gradient
+      context.fillRect(0, 0, posterExportSize.width, posterExportSize.height)
+      fillCircleGradient(context, 420, 360, 520, 'rgba(113, 242, 255, 0.92)')
+      fillCircleGradient(context, 1200, 1400, 560, 'rgba(255, 78, 205, 0.86)')
+      return
+    }
+
+    const gradient = context.createLinearGradient(0, 0, posterExportSize.width, posterExportSize.height)
+    gradient.addColorStop(0, '#ff4ecd')
+    gradient.addColorStop(0.48, '#6737ff')
+    gradient.addColorStop(1, '#101323')
+    context.fillStyle = gradient
+    context.fillRect(0, 0, posterExportSize.width, posterExportSize.height)
+    fillCircleGradient(context, 280, 400, 520, 'rgba(255, 231, 102, 0.9)')
+    fillCircleGradient(context, 1320, 340, 560, 'rgba(113, 242, 255, 0.9)')
+  }
+
+  const drawPosterDecorations = (context, backgroundStyle) => {
+    const inkColor = backgroundStyle === 'paper' ? '#17120f' : '#ffffff'
+
+    context.save()
+    context.strokeStyle = backgroundStyle === 'paper' ? 'rgba(23, 18, 15, 0.22)' : 'rgba(255, 255, 255, 0.24)'
+    context.lineWidth = 3
+    makeRoundedRect(context, 56, 56, posterExportSize.width - 112, posterExportSize.height - 112, 70)
+    context.stroke()
+    context.restore()
+
+    context.save()
+    context.strokeStyle = inkColor
+    context.globalAlpha = 0.22
+    context.lineWidth = 7
+    context.translate(460, 380)
+    context.rotate((-18 * Math.PI) / 180)
+    context.beginPath()
+    context.ellipse(0, 0, 580, 145, 0, 0, Math.PI * 2)
+    context.stroke()
+    context.restore()
+
+    context.save()
+    context.strokeStyle = inkColor
+    context.globalAlpha = 0.22
+    context.lineWidth = 7
+    context.translate(1280, 1500)
+    context.rotate((24 * Math.PI) / 180)
+    context.beginPath()
+    context.ellipse(0, 0, 460, 112, 0, 0, Math.PI * 2)
+    context.stroke()
+    context.restore()
+
+    context.save()
+    context.translate(1420, 1800)
+    context.rotate((45 * Math.PI) / 180)
+    context.globalAlpha = 0.42
+    context.strokeStyle = backgroundStyle === 'paper' ? 'rgba(23, 18, 15, 0.34)' : 'rgba(255, 255, 255, 0.32)'
+    context.lineWidth = 14
+    context.beginPath()
+    context.arc(0, 0, 320, 0, Math.PI * 2)
+    context.clip()
+    for (let x = -420; x <= 420; x += 54) {
+      context.beginPath()
+      context.moveTo(x, -420)
+      context.lineTo(x, 420)
+      context.stroke()
+    }
+    context.restore()
+  }
+
+  const measureLetterSpacedText = (context, text, letterSpacing) => {
+    const letters = Array.from(text)
+    const spacingWidth = Math.max(letters.length - 1, 0) * letterSpacing
+    return context.measureText(text).width + spacingWidth
+  }
+
+  const drawLetterSpacedText = (context, text, x, y, letterSpacing) => {
+    let currentX = x
+
+    Array.from(text).forEach((letter) => {
+      context.fillText(letter, currentX, y)
+      currentX += context.measureText(letter).width + letterSpacing
+    })
+  }
+
+  const drawPosterLine = (context, line, x, y, letterSpacing, color, effect) => {
+    context.save()
+    context.fillStyle = color
+
+    if (effect === 'shadow') {
+      context.fillStyle = 'rgba(255, 78, 205, 0.72)'
+      drawLetterSpacedText(context, line, x + 22, y + 22, letterSpacing)
+      context.fillStyle = 'rgba(113, 242, 255, 0.42)'
+      drawLetterSpacedText(context, line, x + 44, y + 44, letterSpacing)
+      context.fillStyle = color
+    }
+
+    if (effect === 'neon') {
+      context.shadowColor = '#71f2ff'
+      context.shadowBlur = 46
+      context.fillStyle = '#ffffff'
+    }
+
+    if (effect === 'glitch') {
+      context.fillStyle = '#71f2ff'
+      drawLetterSpacedText(context, line, x + 14, y - 10, letterSpacing)
+      context.fillStyle = '#ff4ecd'
+      drawLetterSpacedText(context, line, x - 14, y + 10, letterSpacing)
+      context.fillStyle = color
+    }
+
+    drawLetterSpacedText(context, line, x, y, letterSpacing)
+    context.restore()
+  }
+
+  const drawPosterText = (context, settings) => {
+    const isPaper = settings.backgroundStyle === 'paper'
+    const textColor = isPaper ? '#17120f' : '#ffffff'
+    const accentColor = isPaper ? '#17120f' : '#ffffff'
+    const scaledTitleSize = settings.fontSize * 3.04
+    const scaledLetterSpacing = settings.letterSpacing * 3.04
+    const titleLines = settings.mainText.toUpperCase().split('\n')
+
+    context.textBaseline = 'top'
+    context.fillStyle = accentColor
+    context.font = '900 42px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    drawLetterSpacedText(context, uiLabels.posterKicker.toUpperCase(), 136, 136, 8)
+
+    let titleSize = scaledTitleSize
+    const maxTitleWidth = posterExportSize.width - 272
+    while (titleSize > 92) {
+      context.font = `1000 ${titleSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+      const widestLine = Math.max(
+        ...titleLines.map((line) => measureLetterSpacedText(context, line, scaledLetterSpacing)),
+      )
+
+      if (widestLine <= maxTitleWidth) {
+        break
+      }
+
+      titleSize -= 8
+    }
+
+    context.font = `1000 ${titleSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+    const lineHeight = titleSize * 0.86
+    const titleBlockHeight = titleLines.length * lineHeight
+    let titleY = (posterExportSize.height - titleBlockHeight) * 0.46
+
+    titleLines.forEach((line) => {
+      drawPosterLine(
+        context,
+        line,
+        136,
+        titleY,
+        scaledLetterSpacing,
+        textColor,
+        settings.textEffect,
+      )
+      titleY += lineHeight
+    })
+
+    context.save()
+    context.fillStyle = textColor
+    context.font = '800 58px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    const subTextLines = wrapText(context, settings.subText, 980)
+    subTextLines.forEach((line, index) => {
+      context.fillText(line, 136, 1510 + index * 76)
+    })
+    context.restore()
+
+    context.save()
+    context.fillStyle = textColor
+    context.font = '900 36px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    drawLetterSpacedText(context, backgroundLabels[settings.backgroundStyle], 136, 1844, 6)
+    const effectLabel = effectLabels[settings.textEffect]
+    const effectWidth = measureLetterSpacedText(context, effectLabel, 6)
+    drawLetterSpacedText(context, effectLabel, posterExportSize.width - 136 - effectWidth, 1844, 6)
+    context.restore()
+  }
+
+  const wrapText = (context, text, maxWidth) => {
+    const words = text.split(' ')
+    const lines = []
+    let currentLine = ''
+
+    words.forEach((word) => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+
+      if (context.measureText(testLine).width > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    })
+
+    if (currentLine) {
+      lines.push(currentLine)
+    }
+
+    return lines.slice(0, 3)
+  }
+
+  const drawPosterToCanvas = (settings) => {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+
+    canvas.width = posterExportSize.width
+    canvas.height = posterExportSize.height
+
+    context.save()
+    makeRoundedRect(context, 0, 0, posterExportSize.width, posterExportSize.height, 86)
+    context.clip()
+    drawPosterBackground(context, settings.backgroundStyle)
+    drawPosterDecorations(context, settings.backgroundStyle)
+    drawPosterText(context, settings)
+    context.restore()
+
+    return canvas
+  }
+
+  const downloadPosterImage = async () => {
+    if (isDownloading) {
       return
     }
 
     setIsDownloading(true)
 
-    const posterElement = posterRef.current
-    const posterWidth = posterElement.offsetWidth
-    const posterHeight = posterElement.offsetHeight
-    const clonedPoster = posterElement.cloneNode(true)
-    const styleText = getPageStyleText()
+    try {
+      await document.fonts?.ready
+      const canvas = drawPosterToCanvas(posterSettings)
 
-    clonedPoster.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml')
-    clonedPoster.style.width = `${posterWidth}px`
-    clonedPoster.style.height = `${posterHeight}px`
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          console.error('Poster download failed: canvas.toBlob returned null')
+          alert(uiLabels.downloadError)
+          setIsDownloading(false)
+          return
+        }
 
-    const svgMarkup = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${posterWidth}" height="${posterHeight}" viewBox="0 0 ${posterWidth} ${posterHeight}">
-        <foreignObject width="100%" height="100%">
-          <div xmlns="http://www.w3.org/1999/xhtml">
-            <style>${styleText}</style>
-            ${clonedPoster.outerHTML}
-          </div>
-        </foreignObject>
-      </svg>
-    `
-
-    const svgBlob = new Blob([svgMarkup], {
-      type: 'image/svg+xml;charset=utf-8',
-    })
-    const svgUrl = URL.createObjectURL(svgBlob)
-    const image = new Image()
-
-    image.onload = () => {
-      try {
-        const scale = 2
-        const canvas = document.createElement('canvas')
-        const context = canvas.getContext('2d')
-
-        canvas.width = posterWidth * scale
-        canvas.height = posterHeight * scale
-        context.scale(scale, scale)
-        context.drawImage(image, 0, 0, posterWidth, posterHeight)
-
+        const objectUrl = URL.createObjectURL(blob)
         const downloadLink = document.createElement('a')
         downloadLink.download = 'interactive-poster.png'
-        downloadLink.href = canvas.toDataURL('image/png')
+        downloadLink.href = objectUrl
         downloadLink.click()
-      } catch {
-        alert(uiLabels.downloadError)
-      } finally {
-        URL.revokeObjectURL(svgUrl)
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
         setIsDownloading(false)
-      }
-    }
-
-    image.onerror = () => {
-      URL.revokeObjectURL(svgUrl)
-      setIsDownloading(false)
+      }, 'image/png')
+    } catch (error) {
+      console.error('Poster download failed:', error)
       alert(uiLabels.downloadError)
-    }
-
-    image.src = svgUrl
-  }
+      setIsDownloading(false)
+     }
+   }
 
   return (
     <main className="poster-generator">
@@ -311,7 +550,6 @@ function App() {
       <section className="preview-section" aria-label={uiLabels.preview}>
         <div className="preview-stage">
           <article
-            ref={posterRef}
             className={`poster-card ${posterSettings.backgroundStyle}`}
             style={{
               '--poster-font-size': `${posterSettings.fontSize}px`,
